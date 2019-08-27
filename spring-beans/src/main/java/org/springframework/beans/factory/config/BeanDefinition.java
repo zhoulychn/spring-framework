@@ -44,6 +44,8 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
 	 * <p>Note that extended bean factories might support further scopes.
 	 * @see #setScope
 	 */
+
+	// 单例模式
 	String SCOPE_SINGLETON = ConfigurableBeanFactory.SCOPE_SINGLETON;
 
 	/**
