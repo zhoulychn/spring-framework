@@ -513,42 +513,47 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 	@Override
 	public void refresh() throws BeansException, IllegalStateException {
+
+		// startupShutdownMonitor对象在spring环境刷新和销毁的时候都会用到，确保刷新和销毁不会同时执行
 		synchronized (this.startupShutdownMonitor) {
-			// Prepare this context for refreshing.
+
+			// 准备工作，例如记录事件，设置标志，检查环境变量等，并有留给子类扩展的位置，用来将属性加入到applicationContext中
 			prepareRefresh();
 
-			// Tell the subclass to refresh the internal bean factory.
+			// 创建beanFactory，这个对象作为applicationContext的成员变量，可以被applicationContext拿来用。
+			// 解析资源（例如xml文件），取得BeanDefinition，放在beanFactory中
+			// 默认是DefaultListableBeanFactory
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
-			// Prepare the bean factory for use in this context.
+			// 对beanFactory做一些设置，例如类加载器、spel解析器、指定bean的某些类型的成员变量对应某些对象等
 			prepareBeanFactory(beanFactory);
 
 			try {
-				// Allows post-processing of the bean factory in context subclasses.
+				// 子类扩展用，可以设置bean的后置处理器（bean在实例化之后这些后置处理器会执行）
 				postProcessBeanFactory(beanFactory);
 
-				// Invoke factory processors registered as beans in the context.
+				// 执行beanFactory后置处理器（有别于bean后置处理器处理bean实例，beanFactory后置处理器处理bean定义）
 				invokeBeanFactoryPostProcessors(beanFactory);
 
-				// Register bean processors that intercept bean creation.
+				// 将所有的bean的后置处理器排好序，但不会马上用，bean实例化之后会用到
 				registerBeanPostProcessors(beanFactory);
 
-				// Initialize message source for this context.
+				// 初始化国际化服务
 				initMessageSource();
 
-				// Initialize event multicaster for this context.
+				// 创建事件广播器
 				initApplicationEventMulticaster();
 
-				// Initialize other special beans in specific context subclasses.
+				// 空方法，留给子类自己实现的，在实例化bean之前做一些ApplicationContext相关的操作
 				onRefresh();
 
-				// Check for listener beans and register them.
+				// 注册一部分特殊的事件监听器，剩下的只是准备好名字，留待bean实例化完成后再注册
 				registerListeners();
 
-				// Instantiate all remaining (non-lazy-init) singletons.
+				// 单例模式的bean的实例化、成员变量注入、初始化等工作都在此完成
 				finishBeanFactoryInitialization(beanFactory);
 
-				// Last step: publish corresponding event.
+				// applicationContext刷新完成后的处理，例如生命周期监听器的回调，广播通知等
 				finishRefresh();
 			}
 
@@ -643,12 +648,17 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @param beanFactory the BeanFactory to configure
 	 */
 	protected void prepareBeanFactory(ConfigurableListableBeanFactory beanFactory) {
-		// Tell the internal bean factory to use the context's class loader etc.
+
+		// 类加载器
 		beanFactory.setBeanClassLoader(getClassLoader());
+
+		// bean表达式解析器，
 		beanFactory.setBeanExpressionResolver(new StandardBeanExpressionResolver(beanFactory.getBeanClassLoader()));
+
+		// 属性编辑
 		beanFactory.addPropertyEditorRegistrar(new ResourceEditorRegistrar(this, getEnvironment()));
 
-		// Configure the bean factory with context callbacks.
+		// 添加后置处理器
 		beanFactory.addBeanPostProcessor(new ApplicationContextAwareProcessor(this));
 		beanFactory.ignoreDependencyInterface(EnvironmentAware.class);
 		beanFactory.ignoreDependencyInterface(EmbeddedValueResolverAware.class);
@@ -848,6 +858,10 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
 		// Initialize conversion service for this context.
+
+
+		// Initialize conversion service for this context.
+		// 实例化类型转换的bean，并保存在ApplicationContext中
 		if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME) &&
 				beanFactory.isTypeMatch(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class)) {
 			beanFactory.setConversionService(
@@ -862,18 +876,24 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		}
 
 		// Initialize LoadTimeWeaverAware beans early to allow for registering their transformers early.
+
+		// 实例化LoadTimeWeaverAware接口的bean，用于ApsectJ的类加载期织入的处理
 		String[] weaverAwareNames = beanFactory.getBeanNamesForType(LoadTimeWeaverAware.class, false, false);
 		for (String weaverAwareName : weaverAwareNames) {
 			getBean(weaverAwareName);
 		}
 
 		// Stop using the temporary ClassLoader for type matching.
+		// Stop using the temporary ClassLoader for type matching.
+		// 确保临时的classLoader为空，临时classLoader一般被用来做类型匹配的
 		beanFactory.setTempClassLoader(null);
 
 		// Allow for caching all bean definition metadata, not expecting further changes.
+		// Allow for caching all bean definition metadata, not expecting further changes.
+		// 将一个标志设置为true，表示applicationContext已经缓存了所有bean的定义，这些bean的name都被保存在applicationContext的frozenBeanDefinitionNames成员变量中，相当于一个快照，记录了当前那些bean的定义已经拿到了
 		beanFactory.freezeConfiguration();
 
-		// Instantiate all remaining (non-lazy-init) singletons.
+		// 实例化所有还未实例化的单例bean
 		beanFactory.preInstantiateSingletons();
 	}
 
